@@ -180,13 +180,11 @@ class App extends React.Component {
         </p>
             <p>
             Avstand: {this.state.position && this.state.position.avstand}m
+        {this.props.coords && (<span> +/- {Math.round(this.props.coords.accuracy)}m</span>)}
         </p>
             <p>
             Kommune: {this.state.municipality && this.state.municipality.navn}
             </p>
-            <p>
-            Nøyaktighet: {this.props.coords && Math.round(this.props.coords.accuracy)}m
-        </p>
             <p>
             TRP: {trp ?
                   (<a href={`http://www.vegvesen.no/trafikkdata/start/kart?trpids=${trp.trp.id}&lat=${trp.trp.location.coordinates.latLon.lat}&lon=${trp.trp.location.coordinates.latLon.lon}&zoom=13`}>{this.state.closestTrp.trp.name}</a>) : ""}
