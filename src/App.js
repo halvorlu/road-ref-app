@@ -51,16 +51,26 @@ class App extends React.Component {
         })
             .then(res => res.json())
             .then(data => {
-                this.onNewPosition(this.state.position, data.data.trafficRegistrationPoints);
-                console.log(data.data.trafficRegistrationPoints);
-                this.setState({ trps: data.data.trafficRegistrationPoints});
+                this.onNewPosition(this.state.position,
+                                   data.data.trafficRegistrationPoints,
+                                   this.state.municipalities);
             })
+            .catch(console.log);
+        fetch("https://www.vegvesen.no/nvdb/api/v2/omrader/kommuner.json")
+            .then(res => {
+                if(res.ok) {
+                    return res.json();
+                } else {
+                    throw new HttpError(res);
+                }
+            })
+            .then((data) => this.onNewPosition(this.state.position,
+                                               this.state.trps,
+                                               data))
             .catch(console.log);
     }
 
-    onNewPosition(position, trps) {
-        console.log("trps", trps);
-        console.log("coords", this.props.coords);
+    onNewPosition(position, trps, municipalities) {
         if(trps && this.props.coords) {
             const trpsWithDistance = trps.map(trp => {
                 return { trp,
@@ -70,16 +80,16 @@ class App extends React.Component {
             const closestTrp = trpsWithDistance.reduce((result, obj) => {
                 return (result.distance < obj.distance) ? result : obj;
             });
-            console.log("closeset", closestTrp);
-            this.setState({ position, error: null, closestTrp });
-        } else {
-            this.setState({ position, error: null });
+            this.setState({ closestTrp });
         }
+        if(position && municipalities) {
+            const municipality = municipalities.find(mun => mun.nummer === position.vegreferanse.kommune);
+            this.setState({ municipality });
+        }
+        this.setState({ position, error: null, municipalities });
     }
 
     componentDidUpdate(prevProps) {
-        console.log(this.props.coords)
-        console.log("compdidupdate");
         if(this.props.coords !== prevProps.coords) {
             fetch(`https://www.vegvesen.no/nvdb/api/v2/posisjon?lat=${this.props.coords.latitude}&lon=${this.props.coords.longitude}&maks_avstand=10`)
                 .then(res => {
@@ -89,7 +99,9 @@ class App extends React.Component {
                         throw new HttpError(res);
                     }
                 })
-                .then((data) => this.onNewPosition(data[0], this.state.trps))
+                .then((data) => this.onNewPosition(data[0],
+                                                   this.state.trps,
+                                                   this.state.municipalities))
                 .catch(error => {
                     if(error instanceof HttpError) {
                         error.response.json().then(errorJson => {
@@ -120,6 +132,9 @@ class App extends React.Component {
             <p>
             Avstand: {this.state.position && this.state.position.avstand}m
         </p>
+            <p>
+            Kommune: {this.state.municipality && this.state.municipality.navn}
+            </p>
             <p>
             Nøyaktighet: {this.props.coords && this.props.coords.accuracy}m
         </p>
