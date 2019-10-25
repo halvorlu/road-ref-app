@@ -185,7 +185,7 @@ class App extends React.Component {
             Kommune: {this.state.municipality && this.state.municipality.navn}
             </p>
             <p>
-            Nøyaktighet: {this.props.coords && this.props.coords.accuracy}m
+            Nøyaktighet: {this.props.coords && Math.round(this.props.coords.accuracy)}m
         </p>
             <p>
             TRP: {trp ?
