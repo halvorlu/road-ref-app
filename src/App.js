@@ -107,7 +107,7 @@ class App extends React.Component {
 
     constructor() {
         super()
-        this.lastUpdate = new Date();
+        this.lastUpdate = null;
     }
 
     componentDidMount() {
@@ -181,7 +181,8 @@ class App extends React.Component {
     componentDidUpdate(prevProps) {
         const now = new Date();
         if(this.props.coords !== prevProps.coords
-           && now.getTime() - this.lastUpdate.getTime() > UPDATE_LIMIT_MS) {
+           && (this.lastUpdate == null ||
+               now.getTime() - this.lastUpdate.getTime() > UPDATE_LIMIT_MS)) {
             this.lastUpdate = now;
             this.onNewTrps(this.state.trps);
             fetch(`https://www.vegvesen.no/nvdb/api/v2/posisjon?lat=${this.props.coords.latitude}&lon=${this.props.coords.longitude}&maks_avstand=200`)
