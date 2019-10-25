@@ -96,7 +96,7 @@ class App extends React.Component {
         error: null,
         trps: null,
         closestTrp: null,
-        closesTrpDistance: null,
+        closestTrpDistance: null,
         municipalities: null,
         municipality: null,
         ydt: null,
@@ -215,9 +215,6 @@ class App extends React.Component {
             <p>
             Avstand: {this.state.position && this.state.position.avstand}m
         {this.props.coords && (<span> +/- {Math.round(this.props.coords.accuracy)}m</span>)}
-        </p>
-            <p>
-            Kommune: {this.state.municipality && this.state.municipality.navn}
         </p>
             <h2>Nærmeste TRP</h2>
             <p>
