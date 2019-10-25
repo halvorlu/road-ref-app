@@ -252,7 +252,7 @@ const fromDate = this.state.dt.from.split('T')[0];
 export default geolocated({
     positionOptions: {
         enableHighAccuracy: true,
-        maximumAge: 2000 // Milliseconds
+        maximumAge: 5000 // Milliseconds
     },
     userDecisionTimeout: 5000,
     watchPosition: true
