@@ -2,6 +2,7 @@ import React from 'react';
 import './App.css';
 import { geolocated } from 'react-geolocated';
 import { getDistance } from 'geolib';
+import moment from 'moment';
 
 class HttpError extends Error {
     constructor(response) {
@@ -11,6 +12,7 @@ class HttpError extends Error {
     }
 }
 
+const UPDATE_LIMIT_MS = 5000;
 
 const trpQuery = `
 {
@@ -103,6 +105,11 @@ class App extends React.Component {
         dt: null
     }
 
+    constructor() {
+        super()
+        this.lastUpdate = new Date();
+    }
+
     componentDidMount() {
         graphQlQuery(trpQuery)
             .then(data => {
@@ -172,7 +179,10 @@ class App extends React.Component {
     }
 
     componentDidUpdate(prevProps) {
-        if(this.props.coords !== prevProps.coords) {
+        const now = new Date();
+        if(this.props.coords !== prevProps.coords
+           && now.getTime() - this.lastUpdate.getTime() > UPDATE_LIMIT_MS) {
+            this.lastUpdate = now;
             this.onNewTrps(this.state.trps);
             fetch(`https://www.vegvesen.no/nvdb/api/v2/posisjon?lat=${this.props.coords.latitude}&lon=${this.props.coords.longitude}&maks_avstand=200`)
                 .then(res => {
@@ -189,7 +199,7 @@ class App extends React.Component {
                         error.response.json().then(errorJson => {
                             if(errorJson[0].code === 4012) {
                                 this.setState({ position: null,
-                                                error: 'For langt fra'});
+                                                error: 'Ingen vegreferanser i nærheten'});
                             } else {
                                 console.log(errorJson);
                             }
@@ -215,6 +225,9 @@ class App extends React.Component {
             <p>
             Avstand: {this.state.position && this.state.position.avstand}m
         {this.props.coords && (<span> +/- {Math.round(this.props.coords.accuracy)}m</span>)}
+        </p>
+            <p>
+            Posisjon sist oppdatert: {moment(this.lastUpdate).format('YYYY-MM-DD hh:mm:ss')}
         </p>
             <h2>Nærmeste TRP</h2>
             <p>
@@ -252,7 +265,7 @@ const fromDate = this.state.dt.from.split('T')[0];
 export default geolocated({
     positionOptions: {
         enableHighAccuracy: true,
-        maximumAge: 5000 // Milliseconds
+        maximumAge: UPDATE_LIMIT_MS
     },
     userDecisionTimeout: 5000,
     watchPosition: true
