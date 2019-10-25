@@ -96,6 +96,7 @@ class App extends React.Component {
         error: null,
         trps: null,
         closestTrp: null,
+        closesTrpDistance: null,
         municipalities: null,
         municipality: null,
         ydt: null,
@@ -132,9 +133,10 @@ class App extends React.Component {
             const closestTrp = trpsWithDistance.reduce((result, obj) => {
                 return (result.distance < obj.distance) ? result : obj;
             });
+            this.setState({ closestTrpDistance: closestTrp.distance });
             if(this.state.closestTrp == null
-               || this.state.closestTrp.trp.id !== closestTrp.trp.id) {
-                this.onNewClosestTrp(closestTrp);
+               || this.state.closestTrp.id !== closestTrp.trp.id) {
+                this.onNewClosestTrp(closestTrp.trp);
             }
         }
     }
@@ -148,8 +150,8 @@ class App extends React.Component {
     }
 
     onNewClosestTrp(closestTrp) {
-        this.setState({ closestTrp, ydt: null });
-        graphQlQuery(trafficQuery(closestTrp.trp.id))
+        this.setState({ closestTrp, ydt: null, closestTrpDistance: null });
+        graphQlQuery(trafficQuery(closestTrp.id))
             .then((data) => this.onNewTraffic(data))
             .catch(console.log);
     }
@@ -220,17 +222,17 @@ class App extends React.Component {
             <h2>Nærmeste TRP</h2>
             <p>
             Navn: {trp ?
-                  (<a href={`http://www.vegvesen.no/trafikkdata/start/kart?trpids=${trp.trp.id}&lat=${trp.trp.location.coordinates.latLon.lat}&lon=${trp.trp.location.coordinates.latLon.lon}&zoom=13`}>{trp.trp.name}</a>) : ""}
+                  (<a href={`http://www.vegvesen.no/trafikkdata/start/kart?trpids=${trp.id}&lat=${trp.location.coordinates.latLon.lat}&lon=${trp.location.coordinates.latLon.lon}&zoom=13`}>{trp.name}</a>) : ""}
         </p>
             <p>
-            Vegreferanse for TRP: {trp && trp.trp.location.roadReference.shortForm}
+            Vegreferanse for TRP: {trp && trp.location.roadReference.shortForm}
             </p>
             <p>
-            Avstand: {trp && trp.distance}m
+            Avstand: {this.state.closestTrpDistance}m
         </p>
 <p>
 Siste ÅDT: {trp && this.state.ydt ?
-(<span><a href={`https://www.vegvesen.no/trafikkdata/start/utforsk?datatype=averageDailyYearVolume&display=chart&trpids=${trp.trp.id}`}>{this.state.ydt.total.volume.average}</a> ({this.state.ydt.year}, {Math.round(this.state.ydt.total.coverage.percentage)}% dekningsgrad)</span>)
+(<span><a href={`https://www.vegvesen.no/trafikkdata/start/utforsk?datatype=averageDailyYearVolume&display=chart&trpids=${trp.id}`}>{this.state.ydt.total.volume.average}</a> ({this.state.ydt.year}, {Math.round(this.state.ydt.total.coverage.percentage)}% dekningsgrad)</span>)
  : ""}
 </p>
             <p>
@@ -246,7 +248,7 @@ Siste ÅDT: {trp && this.state.ydt ?
 const trp = this.state.closestTrp;
 const fromDate = this.state.dt.from.split('T')[0];
 
-        return (<span><a href={`https://www.vegvesen.no/trafikkdata/start/utforsk?datatype=weekVolume&display=chart&trpids=${trp.trp.id}&from=${fromDate}`}>{this.state.dt.total.volume}</a> ({fromDate}, {Math.round(this.state.dt.total.coverage.percentage)}% dekningsgrad)</span>);
+        return (<span><a href={`https://www.vegvesen.no/trafikkdata/start/utforsk?datatype=weekVolume&display=chart&trpids=${trp.id}&from=${fromDate}`}>{this.state.dt.total.volume}</a> ({fromDate}, {Math.round(this.state.dt.total.coverage.percentage)}% dekningsgrad)</span>);
     }
 }
 
