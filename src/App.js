@@ -150,7 +150,7 @@ class App extends React.Component {
     }
 
     onNewClosestTrp(closestTrp) {
-        this.setState({ closestTrp, ydt: null, closestTrpDistance: null });
+        this.setState({ closestTrp, ydt: null });
         graphQlQuery(trafficQuery(closestTrp.id))
             .then((data) => this.onNewTraffic(data))
             .catch(console.log);
@@ -251,7 +251,8 @@ const fromDate = this.state.dt.from.split('T')[0];
 
 export default geolocated({
     positionOptions: {
-        enableHighAccuracy: false,
+        enableHighAccuracy: true,
+        maximumAge: 2000 // Milliseconds
     },
     userDecisionTimeout: 5000,
     watchPosition: true
