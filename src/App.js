@@ -31,6 +31,30 @@ const trpQuery = `
   }
 }
 `
+
+const ydtQuery = (trpId) => `
+{
+  trafficData(trafficRegistrationPointId: "${trpId}") {
+    volume {
+      average {
+        daily {
+          byYear {
+            year
+            total {
+              coverage {
+                percentage
+              }
+              volume {
+                average
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+`
 class App extends React.Component {
 
     state = {
@@ -51,9 +75,7 @@ class App extends React.Component {
         })
             .then(res => res.json())
             .then(data => {
-                this.onNewPosition(this.state.position,
-                                   data.data.trafficRegistrationPoints,
-                                   this.state.municipalities);
+                this.onNewTrps(data.data.trafficRegistrationPoints);
             })
             .catch(console.log);
         fetch("https://www.vegvesen.no/nvdb/api/v2/omrader/kommuner.json")
@@ -65,23 +87,25 @@ class App extends React.Component {
                 }
             })
             .then((data) => this.onNewPosition(this.state.position,
-                                               this.state.trps,
                                                data))
             .catch(console.log);
     }
 
-    onNewPosition(position, trps, municipalities) {
+    onNewTrps(trps) {
         if(trps && this.props.coords) {
             const trpsWithDistance = trps.map(trp => {
                 return { trp,
                          distance:
-                                         getDistance({ latitude: this.props.coords.latitude, longitude: this.props.coords.longitude},
-                                                     { latitude: trp.location.coordinates.latLon.lat, longitude: trp.location.coordinates.latLon.lon })}});
+                         getDistance({ latitude: this.props.coords.latitude, longitude: this.props.coords.longitude},
+                                     { latitude: trp.location.coordinates.latLon.lat, longitude: trp.location.coordinates.latLon.lon })}});
             const closestTrp = trpsWithDistance.reduce((result, obj) => {
                 return (result.distance < obj.distance) ? result : obj;
             });
-            this.setState({ closestTrp });
+            this.onNewClosestTrp(closestTrp);
         }
+    }
+
+    onNewPosition(position, municipalities) {
         if(position && municipalities) {
             const municipality = municipalities.find(mun => mun.nummer === position.vegreferanse.kommune);
             this.setState({ municipality });
@@ -89,8 +113,33 @@ class App extends React.Component {
         this.setState({ position, error: null, municipalities });
     }
 
+    onNewClosestTrp(closestTrp) {
+        this.setState({ closestTrp, ydt: null });
+        fetch('https://www.vegvesen.no/trafikkdata/api/', {
+            method: 'post',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({query: ydtQuery(closestTrp.trp.id)})
+        })
+            .then(res => res.json())
+            .then((data) => this.onNewYdt(data))
+            .catch(console.log);
+    }
+
+    onNewYdt(data) {
+        const byYear = data.data.trafficData.volume.average.daily.byYear;
+        if(byYear.length > 0) {
+            this.setState({ ydt: byYear[byYear.length - 1] });
+        } else {
+            this.setState({ ydt: null });
+        }
+    }
+
     componentDidUpdate(prevProps) {
         if(this.props.coords !== prevProps.coords) {
+            this.onNewTrps(this.state.trps);
             fetch(`https://www.vegvesen.no/nvdb/api/v2/posisjon?lat=${this.props.coords.latitude}&lon=${this.props.coords.longitude}&maks_avstand=10`)
                 .then(res => {
                     if(res.ok) {
@@ -100,7 +149,6 @@ class App extends React.Component {
                     }
                 })
                 .then((data) => this.onNewPosition(data[0],
-                                                   this.state.trps,
                                                    this.state.municipalities))
                 .catch(error => {
                     if(error instanceof HttpError) {
@@ -120,9 +168,10 @@ class App extends React.Component {
     }
 
     render () {
+        const trp = this.state.closestTrp;
     return (
             <div className="App">
-            <h1>Road reference app</h1>
+            <h1>Nærmeste vegreferanse og TRP</h1>
             <p>
             {this.state.error}
         </p>
@@ -139,7 +188,8 @@ class App extends React.Component {
             Nøyaktighet: {this.props.coords && this.props.coords.accuracy}m
         </p>
             <p>
-            TRP: {this.state.closestTrp && this.state.closestTrp.trp.name }
+            TRP: {trp ?
+                  (<a href={`http://www.vegvesen.no/trafikkdata/start/kart?trpids=${trp.trp.id}&lat=${trp.trp.location.coordinates.latLon.lat}&lon=${trp.trp.location.coordinates.latLon.lon}&zoom=13`}>{this.state.closestTrp.trp.name}</a>) : ""}
         </p>
             <p>
             Vegreferanse for TRP: {this.state.closestTrp && this.state.closestTrp.trp.location.roadReference.shortForm}
@@ -147,6 +197,11 @@ class App extends React.Component {
             <p>
             Avstand til TRP: {this.state.closestTrp && this.state.closestTrp.distance}m
         </p>
+<p>
+Siste ÅDT: {this.state.ydt ?
+(<span><a href={`https://www.vegvesen.no/trafikkdata/start/utforsk?datatype=averageDailyYearVolume&display=chart&trpids=${this.state.closestTrp.trp.id}`}>{this.state.ydt.total.volume.average}</a> ({this.state.ydt.year}, {Math.round(this.state.ydt.total.coverage.percentage)}% dekningsgrad)</span>)
+ : ""}
+</p>
         </div>
     );
     }
@@ -157,4 +212,5 @@ export default geolocated({
         enableHighAccuracy: false,
     },
     userDecisionTimeout: 5000,
+    watchPosition: true
 })(App);
