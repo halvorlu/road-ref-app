@@ -107,7 +107,7 @@ class App extends React.Component {
 
     onNewPosition(position, municipalities) {
         if(position && municipalities) {
-            const municipality = municipalities.find(mun => mun.nummer === position.vegreferanse.kommune);
+            const municipality = municipalities.filter(mun => mun.nummer === position.vegreferanse.kommune)[0];
             this.setState({ municipality });
         }
         this.setState({ position, error: null, municipalities });
