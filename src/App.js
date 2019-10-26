@@ -104,7 +104,7 @@ const graphQlQuery = (query) => {
 class App extends React.Component {
 
   state = {
-    position: null,
+    roadReference: null,
     error: null,
     trps: null,
     trpsWithDistance: null,
@@ -132,7 +132,7 @@ class App extends React.Component {
           throw new HttpError(res);
         }
       })
-      .then((data) => this.onNewPosition(this.state.position,
+      .then((data) => this.onNewRoadReference(this.state.roadReference,
         data))
       .catch(console.log);
   }
@@ -164,16 +164,16 @@ class App extends React.Component {
     }
   }
 
-  onNewPosition(position, municipalities) {
-    if (position && municipalities) {
+  onNewRoadReference(roadReference, municipalities) {
+    if (roadReference && municipalities) {
       const municipality = municipalities.filter(mun => mun.nummer ===
-        position.vegreferanse.kommune)[0];
+        roadReference.vegreferanse.kommune)[0];
       this.setState({
         municipality
       });
     }
     this.setState({
-      position,
+      roadReference: roadReference,
       error: null,
       municipalities
     });
@@ -211,6 +211,7 @@ class App extends React.Component {
 
   componentDidUpdate(prevProps) {
     const now = new Date();
+    console.log(this.props.coords);
     if (this.props.coords !== prevProps.coords &&
       (this.lastUpdate == null ||
         now.getTime() - this.lastUpdate.getTime() > UPDATE_LIMIT_MS)) {
@@ -226,7 +227,7 @@ class App extends React.Component {
             throw new HttpError(res);
           }
         })
-        .then((data) => this.onNewPosition(data[0],
+        .then((data) => this.onNewRoadReference(data[0],
           this.state.municipalities))
         .catch(error => {
           if (error instanceof HttpError) {
@@ -234,7 +235,7 @@ class App extends React.Component {
               .then(errorJson => {
                 if (errorJson[0].code === 4012) {
                   this.setState({
-                    position: null,
+                    roadReference: null,
                     error: 'Ingen vegreferanser i nærheten'
                   });
                 } else {
@@ -259,10 +260,10 @@ class App extends React.Component {
             <td></td><td>{this.state.error}</td>
           </tr>
           <tr>
-            <td>Vegreferanse:</td><td>{this.state.position && this.state.position.vegreferanse.kortform}</td>
+            <td>Vegreferanse:</td><td>{this.state.roadReference && this.state.roadReference.vegreferanse.kortform}</td>
           </tr>
           <tr>
-            <td>Avstand: </td><td>{this.state.position && this.state.position.avstand}m
+            <td>Avstand: </td><td>{this.state.roadReference && this.state.roadReference.avstand}m
         {this.props.coords && (<span> +/- {Math.round(this.props.coords.accuracy)}m</span>)}
             </td>
           </tr>
