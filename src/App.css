@@ -20,6 +20,10 @@
   border: solid black 1px;
 }
 
+.attribution {
+  font-size: 0.8rem;
+}
+
 .App-header {
   background-color: #282c34;
   min-height: 100vh;

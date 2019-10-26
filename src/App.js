@@ -256,28 +256,31 @@ class App extends React.Component {
         <h2>Nærmeste vegreferanse</h2>
         <table className="center">
           <tbody>
-          <tr>
-            <td></td><td>{this.state.error}</td>
-          </tr>
-          <tr>
-            <td>Vegreferanse:</td><td>{this.state.roadReference && this.state.roadReference.vegreferanse.kortform}</td>
-          </tr>
-          <tr>
-            <td>Avstand: </td><td>{this.state.roadReference && this.state.roadReference.avstand}m
+            <tr>
+              <td></td><td>{this.state.error}</td>
+            </tr>
+            <tr>
+              <td>Vegreferanse:</td><td>{this.state.roadReference && this.state.roadReference.vegreferanse.kortform}</td>
+            </tr>
+            <tr>
+              <td>Avstand: </td><td>{this.state.roadReference && this.state.roadReference.avstand}m
         {this.props.coords && (<span> +/- {Math.round(this.props.coords.accuracy)}m</span>)}
-            </td>
-          </tr>
-          <tr>
-            <td>Posisjon sist oppdatert:</td><td>{moment(this.lastUpdate).format('YYYY-MM-DD HH:mm:ss')}</td>
-          </tr>
+              </td>
+            </tr>
+            <tr>
+              <td>Posisjon sist oppdatert:</td><td>{moment(this.lastUpdate).format('YYYY-MM-DD HH:mm:ss')}</td>
+            </tr>
           </tbody>
         </table>
         <h2>Nærmeste TRPs</h2>
         {trpsWithDistance
-        ? trpsWithDistance.slice(0, NUMBER_OF_TRPS).map(trpInfo => {
-          return <TrpTable key={trpInfo.trp.id} trpInfo={trpInfo} traffic={trpTraffic[trpInfo.trp.id]}></TrpTable>
-        })
-        : ""}
+          ? trpsWithDistance.slice(0, NUMBER_OF_TRPS).map(trpInfo => {
+            return <TrpTable key={trpInfo.trp.id} trpInfo={trpInfo} traffic={trpTraffic[trpInfo.trp.id]}></TrpTable>
+          })
+          : ""}
+        <p className="attribution">
+          Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.
+        </p>
       </div>
     );
   }
