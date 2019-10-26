@@ -268,7 +268,7 @@ class App extends React.Component {
             </td>
           </tr>
           <tr>
-            <td>Posisjon sist oppdatert:</td><td>{moment(this.lastUpdate).format('YYYY-MM-DD hh:mm:ss')}</td>
+            <td>Posisjon sist oppdatert:</td><td>{moment(this.lastUpdate).format('YYYY-MM-DD HH:mm:ss')}</td>
           </tr>
           </tbody>
         </table>
