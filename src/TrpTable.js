@@ -26,7 +26,7 @@ const TrpTable = ({ trpInfo, traffic }) => {
           <td>Avstand:</td><td>{distance}m</td>
         </tr>
         <tr>
-          <td>Siste ÅDT:</td><td>{trp && ydt ?
+          <td>Siste ÅDT:</td><td>{trp && ydt && ydt.total ?
             (<span><a href={`https://www.vegvesen.no/trafikkdata/start/utforsk?datatype=averageDailyYearVolume&display=chart&trpids=${trp.id}`}>{ydt.total.volume.average}</a> ({ydt.year}, {Math.round(ydt.total.coverage.percentage)}% dekningsgrad)</span>)
             : ""}</td>
         </tr>

@@ -264,7 +264,7 @@ class App extends React.Component {
             </tr>
             <tr>
               <td>Avstand: </td><td>{this.state.roadReference && this.state.roadReference.avstand}m
-        {this.props.coords && (<span> +/- {Math.round(this.props.coords.accuracy)}m</span>)}
+              {this.props.coords && (<span> +/- {Math.round(this.props.coords.accuracy)}m</span>)}
               </td>
             </tr>
             <tr>
