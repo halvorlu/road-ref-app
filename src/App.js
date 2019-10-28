@@ -211,7 +211,6 @@ class App extends React.Component {
 
   componentDidUpdate(prevProps) {
     const now = new Date();
-    console.log(this.props.coords);
     if (this.props.coords !== prevProps.coords &&
       (this.lastUpdate == null ||
         now.getTime() - this.lastUpdate.getTime() > UPDATE_LIMIT_MS)) {
