@@ -183,7 +183,6 @@ class App extends React.Component {
   }
 
   onNewMunicipalities(municipalities, roadReference) {
-    console.log(roadReference);
     this.setState({ municipalities });
     if (roadReference && municipalities) {
       const municipality = municipalities.filter(mun => mun.nummer ===
