@@ -109,7 +109,6 @@ class App extends React.Component {
     trps: null,
     trpsWithDistance: null,
     trpTraffic: {},
-    municipalities: null,
     municipality: null,
   }
 
@@ -132,8 +131,7 @@ class App extends React.Component {
           throw new HttpError(res);
         }
       })
-      .then((data) => this.onNewRoadReference(this.state.roadReference,
-        data))
+      .then((data) => this.onNewMunicipalities(data, this.state.roadReference))
       .catch(console.log);
   }
 
@@ -164,7 +162,29 @@ class App extends React.Component {
     }
   }
 
-  onNewRoadReference(roadReference, municipalities) {
+  onNewRoadReference(roadReference) {
+    this.setState({
+      roadReference: roadReference,
+      error: null,
+      municipality: null
+    });
+    fetch(
+      `https://www.vegvesen.no/nvdb/api/v2/veg?veglenke=${roadReference.veglenke.kortform}`
+    )
+      .then(res => {
+        if (res.ok) {
+          return res.json();
+        } else {
+          throw new HttpError(res);
+        }
+      })
+      .then((data) => this.onNewMunicipalities(this.state.municipalities, data))
+      .catch(console.log);
+  }
+
+  onNewMunicipalities(municipalities, roadReference) {
+    console.log(roadReference);
+    this.setState({ municipalities });
     if (roadReference && municipalities) {
       const municipality = municipalities.filter(mun => mun.nummer ===
         roadReference.vegreferanse.kommune)[0];
@@ -172,11 +192,6 @@ class App extends React.Component {
         municipality
       });
     }
-    this.setState({
-      roadReference: roadReference,
-      error: null,
-      municipalities
-    });
   }
 
   getTrafficData(trps) {
@@ -269,6 +284,7 @@ class App extends React.Component {
             <tr>
               <td>Posisjon sist oppdatert:</td><td>{moment(this.lastUpdate).format('YYYY-MM-DD HH:mm:ss')}</td>
             </tr>
+            <tr><td>Kommune: </td><td>{this.state.municipality && this.state.municipality.navn}</td></tr>
           </tbody>
         </table>
         <h2>Nærmeste TRPs</h2>
