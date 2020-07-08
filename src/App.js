@@ -8,6 +8,9 @@ import {
 } from 'geolib';
 import moment from 'moment';
 import TrpTable from './TrpTable';
+import firebase from "firebase/app";
+// Required for side-effects
+import "firebase/firestore";
 
 class HttpError extends Error {
   constructor(response) {
@@ -18,7 +21,8 @@ class HttpError extends Error {
 }
 
 const UPDATE_LIMIT_MS = 5000;
-const NUMBER_OF_TRPS = 3;
+const NUMBER_OF_TRPS = 2;
+const DISTANCE_LIMIT = 500;
 
 const trpQuery = `
 {
@@ -101,6 +105,31 @@ const graphQlQuery = (query) => {
     .then(res => res.json());
 };
 
+// Initialize Cloud Firestore through Firebase
+firebase.initializeApp({
+  apiKey: "AIzaSyBYIvzW1BrJUhXemg-kM-cqkX05F0qrBSE",
+  authDomain: "road-ref-app.firebaseapp.com",
+  databaseURL: "https://road-ref-app.firebaseio.com",
+  projectId: "road-ref-app",
+  storageBucket: "road-ref-app.appspot.com",
+  messagingSenderId: "966583763742",
+  appId: "1:966583763742:web:9e79c64e3ebaea01037f0f",
+  measurementId: "G-JTCYBNLD9Q"
+});
+//firebase.analytics();
+
+const db = firebase.firestore();
+
+const store = (collection, object) => {
+  db.collection(collection).add(object)
+    .then(function (docRef) {
+      //console.log("Document written with ID: ", docRef.id);
+    })
+    .catch(function (error) {
+      console.error("Error adding document: ", error);
+    });
+}
+
 class App extends React.Component {
 
   state = {
@@ -110,6 +139,7 @@ class App extends React.Component {
     trpsWithDistance: null,
     trpTraffic: {},
     municipality: null,
+    visitedTrps: []
   }
 
   constructor() {
@@ -133,6 +163,10 @@ class App extends React.Component {
       })
       .then((data) => this.onNewMunicipalities(data, this.state.roadReference))
       .catch(console.log);
+    db.collection("visitedTrps").get().then((querySnapshot) => {
+      const datas = querySnapshot.docs.map(doc => doc.data()).map(doc => { return { trp: doc.trp, time: doc.time.toDate(), speed: doc.speed } }).sort((a, b) => a.time > b.time ? 1 : -1);
+      this.setState({ visitedTrps: datas });
+    });
   }
 
   onNewTrps(trps) {
@@ -154,6 +188,12 @@ class App extends React.Component {
       })
         .sort((a, b) => a.distance < b.distance ? -1 : 1);
       this.setState({ trpsWithDistance });
+      if (trpsWithDistance[0].distance < DISTANCE_LIMIT) {
+        const trpWithTime = { trp: trpsWithDistance[0].trp, time: new Date(), speed: this.props.coords.speed };
+        const newVisited = this.state.visitedTrps.concat([trpWithTime]);
+        this.setState({ visitedTrps: newVisited });
+        store("visitedTrps", trpWithTime);
+      }
       const trpsMissingData = trpsWithDistance
         .slice(0, NUMBER_OF_TRPS)
         .map(trp => trp.trp)
@@ -292,6 +332,15 @@ class App extends React.Component {
             return <TrpTable key={trpInfo.trp.id} trpInfo={trpInfo} traffic={trpTraffic[trpInfo.trp.id]}></TrpTable>
           })
           : ""}
+        <h2>Passerte TRP-er</h2>
+        <table className="center">
+          <tbody>
+            {this.state.visitedTrps.sort((a, b) => a.time > b.time ? -1 : 1).map((trpWithTime, i) => {
+              return <tr key={i}><td>{moment(trpWithTime.time).format("YYYY-MM-DD HH:mm:ss")}</td><td>{trpWithTime.trp.name}</td><td>{trpWithTime.speed * 3.6}km/t</td></tr>
+            })
+            }
+          </tbody>
+        </table>
         <p className="attribution">
           Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.
         </p>
