@@ -22,7 +22,7 @@ class HttpError extends Error {
   }
 }
 
-const UPDATE_LIMIT_MS = 2000;
+const UPDATE_LIMIT_MS = 5000;
 const NUMBER_OF_TRPS = 2;
 const DISTANCE_LIMIT = 20;
 
@@ -145,6 +145,10 @@ const getTrpDistance = (coords, trp) => {
   });
 }
 
+const formatTime = (time) => {
+  return moment(time).format("YYYY-MM-DD HH:mm:ss");
+}
+
 class App extends React.Component {
 
   state = {
@@ -203,6 +207,10 @@ class App extends React.Component {
     this.setState({
       trps: trps
     });
+    this.onNewTrpsOrCoords(trps);
+  }
+
+  onNewTrpsOrCoords(trps) {
     if (trps && this.props.coords) {
       const trpsWithDistance = trps.map(trp => {
         return {
@@ -259,12 +267,16 @@ class App extends React.Component {
           throw new HttpError(res);
         }
       })
-      .then((data) => this.onNewMunicipalities(this.state.municipalities, data))
+      .then((data) => this.onNewMunicipalitiesOrRoadReference(this.state.municipalities, data))
       .catch(console.log);
   }
 
   onNewMunicipalities(municipalities, roadReference) {
     this.setState({ municipalities });
+    this.onNewMunicipalitiesOrRoadReference(municipalities, roadReference);
+  }
+
+  onNewMunicipalitiesOrRoadReference(municipalities, roadReference) {
     if (roadReference && municipalities) {
       const municipality = municipalities.filter(mun => mun.nummer ===
         roadReference.vegreferanse.kommune)[0];
@@ -306,11 +318,13 @@ class App extends React.Component {
 
   componentDidUpdate(prevProps) {
     const now = new Date();
+    if (this.props.coords !== prevProps.coords) {
+      this.onNewTrpsOrCoords(this.state.trps);
+    }
     if (this.props.coords !== prevProps.coords &&
       (this.lastUpdate == null ||
         now.getTime() - this.lastUpdate.getTime() > UPDATE_LIMIT_MS)) {
       this.lastUpdate = now;
-      this.onNewTrps(this.state.trps);
       fetch(
         `https://www.vegvesen.no/nvdb/api/v2/posisjon?lat=${this.props.coords.latitude}&lon=${this.props.coords.longitude}&maks_avstand=200`
       )
@@ -352,27 +366,28 @@ class App extends React.Component {
       return <div><p>Logg inn. Ved å logge inn godtar du at passeringer av TRP blir lagret i en sentral database.</p><StyledFirebaseAuth uiConfig={uiConfig} firebaseAuth={firebase.auth()} /></div>;
     }
     const { trpsWithDistance, trpTraffic } = this.state;
+    const sortedTrps = this.state.visitedTrps.sort((a, b) => a.time > b.time ? -1 : 1);
     return (
       <div className="App">
-        <h2>Nærmeste vegreferanse</h2>
         <table className="center">
           <tbody>
             <tr>
               <td></td><td>{this.state.error}</td>
             </tr>
             <tr>
-              <td>Vegreferanse:</td><td>{this.state.roadReference && this.state.roadReference.vegreferanse.kortform}</td>
+              <td>Nærmeste vegreferanse:</td><td>{this.state.roadReference && this.state.roadReference.vegreferanse.kortform}</td>
             </tr>
             <tr>
               <td>Avstand: </td><td>{this.state.roadReference && this.state.roadReference.avstand}m
               {this.props.coords && (<span> +/- {Math.round(this.props.coords.accuracy)}m</span>)}
               </td>
             </tr>
-            <tr><td>Hastighet: </td><td>{(this.props.coords && this.props.coords.speed) || "N/A"} m/s</td></tr>
+            <tr><td>Hastighet: </td><td>{(this.props.coords && Math.round(this.props.coords.speed*3.6)) || "N/A"} km/t</td></tr>
             <tr>
-              <td>Posisjon sist oppdatert:</td><td>{moment(this.lastUpdate).format('YYYY-MM-DD HH:mm:ss')}</td>
+              <td>Vegref. sist oppdatert:</td><td>{formatTime(this.lastUpdate)}</td>
             </tr>
             <tr><td>Kommune: </td><td>{this.state.municipality && this.state.municipality.navn}</td></tr>
+            <tr><td>Siste passering: </td><td>{sortedTrps[0] && (sortedTrps[0].trp.name + " (" + formatTime(sortedTrps[0].time) + ")")}</td></tr>
           </tbody>
         </table>
         <h2>Nærmeste TRPs</h2>
@@ -382,11 +397,10 @@ class App extends React.Component {
           })
           : ""}
         <h2>Passerte TRP-er</h2>
-        {this.state.distanceLimit}m
         <table className="center">
           <tbody>
-            {this.state.visitedTrps.sort((a, b) => a.time > b.time ? -1 : 1).map((trpWithTime, i) => {
-              return <tr key={i}><td>{moment(trpWithTime.time).format("YYYY-MM-DD HH:mm:ss")}</td><td>{trpWithTime.trp.name}</td></tr>
+            {sortedTrps.map((trpWithTime, i) => {
+              return <tr key={i}><td>{formatTime(trpWithTime.time)}</td><td>{trpWithTime.trp.name}</td></tr>
             })
             }
           </tbody>
@@ -404,7 +418,7 @@ class App extends React.Component {
 export default geolocated({
   positionOptions: {
     enableHighAccuracy: true,
-    maximumAge: UPDATE_LIMIT_MS
+    maximumAge: 500
   },
   userDecisionTimeout: 5000,
   watchPosition: true
