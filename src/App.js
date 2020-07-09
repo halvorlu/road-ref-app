@@ -11,6 +11,8 @@ import TrpTable from './TrpTable';
 import firebase from "firebase/app";
 // Required for side-effects
 import "firebase/firestore";
+import * as firebaseui from "firebaseui";
+import StyledFirebaseAuth from 'react-firebaseui/StyledFirebaseAuth';
 
 class HttpError extends Error {
   constructor(response) {
@@ -120,14 +122,27 @@ firebase.initializeApp({
 
 const db = firebase.firestore();
 
-const store = (collection, object) => {
-  db.collection(collection).add(object)
-    .then(function (docRef) {
-      //console.log("Document written with ID: ", docRef.id);
-    })
-    .catch(function (error) {
-      console.error("Error adding document: ", error);
-    });
+const uiConfig = {
+  signInFlow: 'redirect',
+  // We will display Google and Facebook as auth providers.
+  signInOptions: [
+    firebase.auth.GoogleAuthProvider.PROVIDER_ID,
+  ],
+  callbacks: {
+    // Avoid redirects after sign-in.
+    signInSuccessWithAuthResult: () => false
+  }
+};
+
+
+const getTrpDistance = (coords, trp) => {
+  return getDistance({
+    latitude: coords.latitude,
+    longitude: coords.longitude
+  }, {
+    latitude: trp.location.coordinates.latLon.lat,
+    longitude: trp.location.coordinates.latLon.lon
+  });
 }
 
 class App extends React.Component {
@@ -139,7 +154,9 @@ class App extends React.Component {
     trpsWithDistance: null,
     trpTraffic: {},
     municipality: null,
-    visitedTrps: []
+    visitedTrps: [],
+    currentTrp: null,
+    isSignedIn: false
   }
 
   constructor() {
@@ -147,7 +164,22 @@ class App extends React.Component {
     this.lastUpdate = null;
   }
 
+  componentWillUnmount() {
+    this.unregisterAuthObserver();
+  }
+
   componentDidMount() {
+    this.unregisterAuthObserver = firebase.auth().onAuthStateChanged(
+      (user) => {
+        this.setState({ isSignedIn: !!user });
+        if (!!user) {
+          db.collection("users").doc(firebase.auth().currentUser.uid).collection("visitedTrps").get().then((querySnapshot) => {
+            const datas = querySnapshot.docs.map(doc => doc.data()).map(doc => { return { trp: doc.trp, time: doc.time.toDate(), speed: doc.speed } }).sort((a, b) => a.time > b.time ? 1 : -1);
+            this.setState({ visitedTrps: datas });
+          });
+        }
+      }
+    );
     graphQlQuery(trpQuery)
       .then(data => {
         this.onNewTrps(data.data.trafficRegistrationPoints);
@@ -163,10 +195,6 @@ class App extends React.Component {
       })
       .then((data) => this.onNewMunicipalities(data, this.state.roadReference))
       .catch(console.log);
-    db.collection("visitedTrps").get().then((querySnapshot) => {
-      const datas = querySnapshot.docs.map(doc => doc.data()).map(doc => { return { trp: doc.trp, time: doc.time.toDate(), speed: doc.speed } }).sort((a, b) => a.time > b.time ? 1 : -1);
-      this.setState({ visitedTrps: datas });
-    });
   }
 
   onNewTrps(trps) {
@@ -177,28 +205,38 @@ class App extends React.Component {
       const trpsWithDistance = trps.map(trp => {
         return {
           trp,
-          distance: getDistance({
-            latitude: this.props.coords.latitude,
-            longitude: this.props.coords.longitude
-          }, {
-            latitude: trp.location.coordinates.latLon.lat,
-            longitude: trp.location.coordinates.latLon.lon
-          })
+          distance: getTrpDistance(this.props.coords, trp)
         };
       })
         .sort((a, b) => a.distance < b.distance ? -1 : 1);
       this.setState({ trpsWithDistance });
-      if (trpsWithDistance[0].distance < DISTANCE_LIMIT) {
-        const trpWithTime = { trp: trpsWithDistance[0].trp, time: new Date(), speed: this.props.coords.speed };
+      const closestTrp = trpsWithDistance[0];
+      if (closestTrp.distance < DISTANCE_LIMIT && (this.state.currentTrp == null || closestTrp.trp.id !== this.state.currentTrp.trp.id)) {
+        const trpWithTime = { trp: closestTrp.trp, time: new Date() };
         const newVisited = this.state.visitedTrps.concat([trpWithTime]);
-        this.setState({ visitedTrps: newVisited });
-        store("visitedTrps", trpWithTime);
+        this.setState({ visitedTrps: newVisited, currentTrp: closestTrp });
+        this.store("visitedTrps", trpWithTime);
+      } else if (closestTrp.distance >= DISTANCE_LIMIT) {
+        this.setState({ currentTrp: null });
       }
       const trpsMissingData = trpsWithDistance
         .slice(0, NUMBER_OF_TRPS)
         .map(trp => trp.trp)
         .filter(trp => !(trp.id in this.state.trpTraffic));
       this.getTrafficData(trpsMissingData);
+    }
+  }
+
+
+  store(collection, object) {
+    if (this.state.isSignedIn) {
+      db.collection("users").doc(firebase.auth().currentUser.uid).collection(collection).add(object)
+        .then(function (docRef) {
+          //console.log("Document written with ID: ", docRef.id);
+        })
+        .catch(function (error) {
+          console.error("Error adding document: ", error);
+        });
     }
   }
 
@@ -303,6 +341,9 @@ class App extends React.Component {
   }
 
   render() {
+    if (!this.state.isSignedIn) {
+      return <div><p>Logg inn. Ved å logge inn godtar du at passeringer av TRP blir lagret i en sentral database.</p><StyledFirebaseAuth uiConfig={uiConfig} firebaseAuth={firebase.auth()} /></div>;
+    }
     const { trpsWithDistance, trpTraffic } = this.state;
     return (
       <div className="App">
@@ -336,11 +377,12 @@ class App extends React.Component {
         <table className="center">
           <tbody>
             {this.state.visitedTrps.sort((a, b) => a.time > b.time ? -1 : 1).map((trpWithTime, i) => {
-              return <tr key={i}><td>{moment(trpWithTime.time).format("YYYY-MM-DD HH:mm:ss")}</td><td>{trpWithTime.trp.name}</td><td>{trpWithTime.speed * 3.6}km/t</td></tr>
+              return <tr key={i}><td>{moment(trpWithTime.time).format("YYYY-MM-DD HH:mm:ss")}</td><td>{trpWithTime.trp.name}</td></tr>
             })
             }
           </tbody>
         </table>
+        <p className="attribution">Logget inn som {firebase.auth().currentUser.displayName}</p>
         <p className="attribution">
           Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.
         </p>
