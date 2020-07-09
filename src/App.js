@@ -22,9 +22,9 @@ class HttpError extends Error {
   }
 }
 
-const UPDATE_LIMIT_MS = 5000;
+const UPDATE_LIMIT_MS = 2000;
 const NUMBER_OF_TRPS = 2;
-const DISTANCE_LIMIT = 500;
+const DISTANCE_LIMIT = 20;
 
 const trpQuery = `
 {
@@ -156,11 +156,13 @@ class App extends React.Component {
     municipality: null,
     visitedTrps: [],
     currentTrp: null,
-    isSignedIn: false
+    isSignedIn: false,
+    distanceLimit: DISTANCE_LIMIT
   }
 
   constructor() {
     super()
+    this.handleChange = this.handleChange.bind(this);
     this.lastUpdate = null;
   }
 
@@ -174,7 +176,7 @@ class App extends React.Component {
         this.setState({ isSignedIn: !!user });
         if (!!user) {
           db.collection("users").doc(firebase.auth().currentUser.uid).collection("visitedTrps").get().then((querySnapshot) => {
-            const datas = querySnapshot.docs.map(doc => doc.data()).map(doc => { return { trp: doc.trp, time: doc.time.toDate(), speed: doc.speed } }).sort((a, b) => a.time > b.time ? 1 : -1);
+            const datas = querySnapshot.docs.map(doc => doc.data()).map(doc => { return { trp: doc.trp, time: doc.time.toDate() } }).sort((a, b) => a.time > b.time ? 1 : -1);
             this.setState({ visitedTrps: datas });
           });
         }
@@ -211,12 +213,13 @@ class App extends React.Component {
         .sort((a, b) => a.distance < b.distance ? -1 : 1);
       this.setState({ trpsWithDistance });
       const closestTrp = trpsWithDistance[0];
-      if (closestTrp.distance < DISTANCE_LIMIT && (this.state.currentTrp == null || closestTrp.trp.id !== this.state.currentTrp.trp.id)) {
+      const distanceLimit = parseInt(this.state.distanceLimit) || DISTANCE_LIMIT;
+      if (closestTrp.distance < distanceLimit && (this.state.currentTrp == null || closestTrp.trp.id !== this.state.currentTrp.trp.id)) {
         const trpWithTime = { trp: closestTrp.trp, time: new Date() };
         const newVisited = this.state.visitedTrps.concat([trpWithTime]);
         this.setState({ visitedTrps: newVisited, currentTrp: closestTrp });
         this.store("visitedTrps", trpWithTime);
-      } else if (closestTrp.distance >= DISTANCE_LIMIT) {
+      } else if (closestTrp.distance >= distanceLimit) {
         this.setState({ currentTrp: null });
       }
       const trpsMissingData = trpsWithDistance
@@ -340,6 +343,10 @@ class App extends React.Component {
     }
   }
 
+  handleChange(event) {
+    this.setState({distanceLimit: event.target.value});
+  }
+
   render() {
     if (!this.state.isSignedIn) {
       return <div><p>Logg inn. Ved å logge inn godtar du at passeringer av TRP blir lagret i en sentral database.</p><StyledFirebaseAuth uiConfig={uiConfig} firebaseAuth={firebase.auth()} /></div>;
@@ -361,6 +368,7 @@ class App extends React.Component {
               {this.props.coords && (<span> +/- {Math.round(this.props.coords.accuracy)}m</span>)}
               </td>
             </tr>
+            <tr><td>Hastighet: </td><td>{(this.props.coords && this.props.coords.speed) || "N/A"} m/s</td></tr>
             <tr>
               <td>Posisjon sist oppdatert:</td><td>{moment(this.lastUpdate).format('YYYY-MM-DD HH:mm:ss')}</td>
             </tr>
@@ -374,6 +382,7 @@ class App extends React.Component {
           })
           : ""}
         <h2>Passerte TRP-er</h2>
+        {this.state.distanceLimit}m
         <table className="center">
           <tbody>
             {this.state.visitedTrps.sort((a, b) => a.time > b.time ? -1 : 1).map((trpWithTime, i) => {
@@ -382,6 +391,7 @@ class App extends React.Component {
             }
           </tbody>
         </table>
+        Største avstand som regnes som TRP-besøk: <input type="text" value={this.state.distanceLimit} onChange={this.handleChange} />m
         <p className="attribution">Logget inn som {firebase.auth().currentUser.displayName}</p>
         <p className="attribution">
           Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.
