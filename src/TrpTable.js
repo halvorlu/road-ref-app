@@ -20,7 +20,7 @@ const TrpTable = ({ trpInfo, traffic }) => {
             (<a href={`http://www.vegvesen.no/trafikkdata/start/kart?trpids=${trp.id}&lat=${trp.location.coordinates.latLon.lat}&lon=${trp.location.coordinates.latLon.lon}&zoom=13`}>{trp.name}</a>) : ""}</td>
         </tr>
         <tr>
-          <td>Vegreferanse:</td><td>{trp && trp.location.roadReference.shortForm}</td>
+          <td>Vegreferanse:</td><td>{trp && trp.location && trp.location.roadReference && trp.location.roadReference.shortForm}</td>
         </tr>
         <tr>
           <td>Avstand:</td><td>{distance}m</td>
