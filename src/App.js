@@ -405,7 +405,7 @@ class App extends React.Component {
             }
           </tbody>
         </table>
-        Største avstand som regnes som TRP-besøk: <input type="text" value={this.state.distanceLimit} onChange={this.handleChange} />m
+        Største avstand som regnes som TRP-besøk: <input size="4" type="text" value={this.state.distanceLimit} onChange={this.handleChange} />m
         <p className="attribution">Logget inn som {firebase.auth().currentUser.displayName}</p>
         <p className="attribution">
           Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.
