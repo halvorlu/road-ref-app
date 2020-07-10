@@ -358,7 +358,7 @@ class App extends React.Component {
   }
 
   handleChange(event) {
-    this.setState({distanceLimit: event.target.value});
+    this.setState({ distanceLimit: event.target.value });
   }
 
   render() {
@@ -382,7 +382,7 @@ class App extends React.Component {
               {this.props.coords && (<span> +/- {Math.round(this.props.coords.accuracy)}m</span>)}
               </td>
             </tr>
-            <tr><td>Hastighet: </td><td>{(this.props.coords && Math.round(this.props.coords.speed*3.6)) || "N/A"} km/t</td></tr>
+            <tr><td>Hastighet: </td><td>{(this.props.coords && Math.round(this.props.coords.speed * 3.6)) || "N/A"} km/t</td></tr>
             <tr>
               <td>Vegref. sist oppdatert:</td><td>{formatTime(this.lastUpdate)}</td>
             </tr>
@@ -396,7 +396,7 @@ class App extends React.Component {
             return <TrpTable key={trpInfo.trp.id} trpInfo={trpInfo} traffic={trpTraffic[trpInfo.trp.id]}></TrpTable>
           })
           : ""}
-        <h2>Passerte TRP-er</h2>
+        <h2>Passerte TRP-er ({sortedTrps.length})</h2>
         <table className="center">
           <tbody>
             {sortedTrps.map((trpWithTime, i) => {
@@ -405,7 +405,7 @@ class App extends React.Component {
             }
           </tbody>
         </table>
-        Største avstand som regnes som TRP-besøk: <input size="4" type="text" value={this.state.distanceLimit} onChange={this.handleChange} />m
+        Største avstand som regnes som passering: <input size="4" type="text" value={this.state.distanceLimit} onChange={this.handleChange} />m
         <p className="attribution">Logget inn som {firebase.auth().currentUser.displayName}</p>
         <p className="attribution">
           Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.
