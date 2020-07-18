@@ -191,16 +191,6 @@ class App extends React.Component {
         this.onNewTrps(data.data.trafficRegistrationPoints);
       })
       .catch(console.log);
-    fetch("https://www.vegvesen.no/nvdb/api/v2/omrader/kommuner.json")
-      .then(res => {
-        if (res.ok) {
-          return res.json();
-        } else {
-          throw new HttpError(res);
-        }
-      })
-      .then((data) => this.onNewMunicipalities(data, this.state.roadReference))
-      .catch(console.log);
   }
 
   onNewTrps(trps) {
@@ -254,36 +244,14 @@ class App extends React.Component {
   onNewRoadReference(roadReference) {
     this.setState({
       roadReference: roadReference,
-      error: null,
-      municipality: null
+      error: null
     });
-    fetch(
-      `https://www.vegvesen.no/nvdb/api/v2/veg?veglenke=${roadReference.veglenke.kortform}`
-    )
-      .then(res => {
-        if (res.ok) {
-          return res.json();
-        } else {
-          throw new HttpError(res);
-        }
-      })
-      .then((data) => this.onNewMunicipalitiesOrRoadReference(this.state.municipalities, data))
-      .catch(console.log);
   }
 
-  onNewMunicipalities(municipalities, roadReference) {
-    this.setState({ municipalities });
-    this.onNewMunicipalitiesOrRoadReference(municipalities, roadReference);
-  }
-
-  onNewMunicipalitiesOrRoadReference(municipalities, roadReference) {
-    if (roadReference && municipalities) {
-      const municipality = municipalities.filter(mun => mun.nummer ===
-        roadReference.vegreferanse.kommune)[0];
-      this.setState({
-        municipality
-      });
-    }
+  onNewMunicipality(municipality) {
+    this.setState({
+      municipality: municipality.kommunenavn
+    });
   }
 
   getTrafficData(trps) {
@@ -325,6 +293,16 @@ class App extends React.Component {
       (this.lastUpdate == null ||
         now.getTime() - this.lastUpdate.getTime() > UPDATE_LIMIT_MS)) {
       this.lastUpdate = now;
+      fetch(`https://ws.geonorge.no/kommuneinfo/v1/punkt?koordsys=4258&nord=${this.props.coords.latitude}&ost=${this.props.coords.longitude}`)
+        .then(res => {
+          if (res.ok) {
+            return res.json();
+          } else {
+            throw new HttpError(res);
+          }
+        })
+        .then((data) => this.onNewMunicipality(data))
+        .catch(console.log);
       fetch(
         `https://www.vegvesen.no/nvdb/api/v2/posisjon?lat=${this.props.coords.latitude}&lon=${this.props.coords.longitude}&maks_avstand=200`
       )
@@ -335,8 +313,7 @@ class App extends React.Component {
             throw new HttpError(res);
           }
         })
-        .then((data) => this.onNewRoadReference(data[0],
-          this.state.municipalities))
+        .then((data) => this.onNewRoadReference(data[0]))
         .catch(error => {
           if (error instanceof HttpError) {
             error.response.json()
@@ -386,7 +363,7 @@ class App extends React.Component {
             <tr>
               <td>Vegref. sist oppdatert:</td><td>{formatTime(this.lastUpdate)}</td>
             </tr>
-            <tr><td>Kommune: </td><td>{this.state.municipality && this.state.municipality.navn}</td></tr>
+            <tr><td>Kommune: </td><td>{this.state.municipality}</td></tr>
             <tr><td>Siste passering: </td><td>{sortedTrps[0] && (sortedTrps[0].trp.name + " (" + formatTime(sortedTrps[0].time) + ")")}</td></tr>
           </tbody>
         </table>
