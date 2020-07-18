@@ -28,7 +28,7 @@ const DISTANCE_LIMIT = 20;
 
 const trpQuery = `
 {
-  trafficRegistrationPoints {
+  trafficRegistrationPoints(searchQuery: {isOperational: true}) {
     id
     name
     location {
