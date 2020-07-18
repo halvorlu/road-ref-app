@@ -179,10 +179,7 @@ class App extends React.Component {
       (user) => {
         this.setState({ isSignedIn: !!user });
         if (!!user) {
-          db.collection("users").doc(firebase.auth().currentUser.uid).collection("visitedTrps").get().then((querySnapshot) => {
-            const datas = querySnapshot.docs.map(doc => doc.data()).map(doc => { return { trp: doc.trp, time: doc.time.toDate() } }).sort((a, b) => a.time > b.time ? 1 : -1);
-            this.setState({ visitedTrps: datas });
-          });
+          this.refreshVisitedTrps();
         }
       }
     );
@@ -191,6 +188,19 @@ class App extends React.Component {
         this.onNewTrps(data.data.trafficRegistrationPoints);
       })
       .catch(console.log);
+  }
+
+  refreshVisitedTrps() {
+    this.getUserDoc().collection("visitedTrps").get().then((querySnapshot) => {
+      const datas = querySnapshot.docs.map(doc => {
+        return {
+          trp: doc.data().trp,
+          time: doc.data().time.toDate(),
+          id: doc.id
+        }
+      }).sort((a, b) => a.time > b.time ? 1 : -1);
+      this.setState({visitedTrps: datas});
+    });
   }
 
   onNewTrps(trps) {
@@ -213,7 +223,7 @@ class App extends React.Component {
       const closestTrp = trpsWithDistance[0];
       const distanceLimit = parseInt(this.state.distanceLimit) || DISTANCE_LIMIT;
       if (closestTrp.distance < distanceLimit && (this.state.currentTrp == null || closestTrp.trp.id !== this.state.currentTrp.trp.id)) {
-        const trpWithTime = { trp: closestTrp.trp, time: new Date() };
+        const trpWithTime = { trp: closestTrp.trp, time: new Date(), id: null };
         const newVisited = this.state.visitedTrps.concat([trpWithTime]);
         this.setState({ visitedTrps: newVisited, currentTrp: closestTrp });
         this.store("visitedTrps", trpWithTime);
@@ -228,12 +238,29 @@ class App extends React.Component {
     }
   }
 
+  getUserDoc() {
+    return db.collection("users").doc(firebase.auth().currentUser.uid);
+  }
 
   store(collection, object) {
     if (this.state.isSignedIn) {
-      db.collection("users").doc(firebase.auth().currentUser.uid).collection(collection).add(object)
+      this.getUserDoc().collection(collection).add(object)
         .then(function (docRef) {
           //console.log("Document written with ID: ", docRef.id);
+        })
+        .catch(function (error) {
+          console.error("Error adding document: ", error);
+        });
+    }
+  }
+
+  delete(collection, id) {
+    if(this.state.isSignedIn) {
+      const refreshVisitedTrps1 = this.refreshVisitedTrps.bind(this);
+      this.getUserDoc().collection(collection).doc(id).delete()
+        .then(function (docRef) {
+          console.log("Document deleted with ID: ", id);
+          refreshVisitedTrps1();
         })
         .catch(function (error) {
           console.error("Error adding document: ", error);
@@ -338,12 +365,22 @@ class App extends React.Component {
     this.setState({ distanceLimit: event.target.value });
   }
 
+  onDelete(id) {
+    if(this.state.isSignedIn) {
+      if(window.confirm("Er du sikker på at du vil slette?")) {
+        this.delete("visitedTrps", id);
+      }
+    }
+
+  }
+
   render() {
     if (!this.state.isSignedIn) {
       return <div><p>Logg inn. Ved å logge inn godtar du at passeringer av TRP blir lagret i en sentral database.</p><StyledFirebaseAuth uiConfig={uiConfig} firebaseAuth={firebase.auth()} /></div>;
     }
     const { trpsWithDistance, trpTraffic } = this.state;
     const sortedTrps = this.state.visitedTrps.sort((a, b) => a.time > b.time ? -1 : 1);
+    const uniqueTrps = new Set(sortedTrps.map(trp => trp.trp.id)).size;
     return (
       <div className="App">
         <table className="center">
@@ -373,11 +410,13 @@ class App extends React.Component {
             return <TrpTable key={trpInfo.trp.id} trpInfo={trpInfo} traffic={trpTraffic[trpInfo.trp.id]}></TrpTable>
           })
           : ""}
-        <h2>Passerte TRP-er ({sortedTrps.length})</h2>
+        <h2>{sortedTrps.length} passeringer, {uniqueTrps} unike TRP-er</h2>
         <table className="center">
           <tbody>
             {sortedTrps.map((trpWithTime, i) => {
-              return <tr key={i}><td>{formatTime(trpWithTime.time)}</td><td>{trpWithTime.trp.name}</td></tr>
+              return (<tr key={i}><td>{formatTime(trpWithTime.time)}</td><td>{trpWithTime.trp.name}</td>
+              <td>{trpWithTime.id ? (<button onClick={() => this.onDelete(trpWithTime.id)}>Slett</button>) : ""}</td>
+              </tr>)
             })
             }
           </tbody>
