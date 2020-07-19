@@ -23,7 +23,7 @@ const TrpTable = ({ trpInfo, traffic }) => {
           <td>Vegreferanse:</td><td>{trp && trp.location && trp.location.roadReference && trp.location.roadReference.shortForm}</td>
         </tr>
         <tr>
-          <td>Avstand:</td><td className={speed < 0 ? "green" : "red"}>{distance}m, {speed*3.6}km/t</td>
+          <td>Avstand:</td><td className={speed < -10 ? "green" : (speed > 10 ? "red" : "")}>{distance}m, {Math.round(speed*3.6)}km/t</td>
         </tr>
         <tr>
           <td>Siste ÅDT:</td><td>{trp && ydt && ydt.total ?
