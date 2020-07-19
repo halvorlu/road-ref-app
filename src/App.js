@@ -1,11 +1,7 @@
 import React from 'react';
 import './App.css';
-import {
-  geolocated
-} from 'react-geolocated';
-import {
-  getDistance
-} from 'geolib';
+import {geolocated} from 'react-geolocated';
+import {getDistance} from 'geolib';
 import moment from 'moment';
 import TrpTable from './TrpTable';
 import firebase from "firebase/app";
@@ -13,6 +9,9 @@ import firebase from "firebase/app";
 import "firebase/firestore";
 import * as firebaseui from "firebaseui";
 import StyledFirebaseAuth from 'react-firebaseui/StyledFirebaseAuth';
+
+// Dummy line to keep IntelliJ from removing import of firebaseui
+const firebaseui_dummy = firebaseui;
 
 class HttpError extends Error {
   constructor(response) {
@@ -134,7 +133,6 @@ const uiConfig = {
   }
 };
 
-
 const getTrpDistance = (coords, trp) => {
   return getDistance({
     latitude: coords.latitude,
@@ -168,6 +166,7 @@ class App extends React.Component {
     super()
     this.handleChange = this.handleChange.bind(this);
     this.lastUpdate = null;
+    this.lastCoordsTime = null;
   }
 
   componentWillUnmount() {
@@ -177,7 +176,7 @@ class App extends React.Component {
   componentDidMount() {
     this.unregisterAuthObserver = firebase.auth().onAuthStateChanged(
       (user) => {
-        this.setState({ isSignedIn: !!user });
+        this.setState({isSignedIn: !!user});
         if (!!user) {
           this.refreshVisitedTrps();
         }
@@ -207,28 +206,31 @@ class App extends React.Component {
     this.setState({
       trps: trps
     });
-    this.onNewTrpsOrCoords(trps);
+    this.onNewTrpsOrCoords(trps, this.props.coords, 1000);
   }
 
-  onNewTrpsOrCoords(trps) {
+  onNewTrpsOrCoords(trps, prevCoords, timeSinceUpdate) {
     if (trps && this.props.coords) {
       const trpsWithDistance = trps.map(trp => {
+        const newDistance = getTrpDistance(this.props.coords, trp);
+        const oldDistance = getTrpDistance(prevCoords, trp);
         return {
           trp,
-          distance: getTrpDistance(this.props.coords, trp)
+          distance: newDistance,
+          speed: (newDistance - oldDistance) / timeSinceUpdate
         };
       })
         .sort((a, b) => a.distance < b.distance ? -1 : 1);
-      this.setState({ trpsWithDistance });
+      this.setState({trpsWithDistance});
       const closestTrp = trpsWithDistance[0];
       const distanceLimit = parseInt(this.state.distanceLimit) || DISTANCE_LIMIT;
       if (closestTrp.distance < distanceLimit && (this.state.currentTrp == null || closestTrp.trp.id !== this.state.currentTrp.trp.id)) {
-        const trpWithTime = { trp: closestTrp.trp, time: new Date(), id: null };
+        const trpWithTime = {trp: closestTrp.trp, time: new Date(), id: null};
         const newVisited = this.state.visitedTrps.concat([trpWithTime]);
-        this.setState({ visitedTrps: newVisited, currentTrp: closestTrp });
+        this.setState({visitedTrps: newVisited, currentTrp: closestTrp});
         this.store("visitedTrps", trpWithTime);
       } else if (closestTrp.distance >= distanceLimit) {
-        this.setState({ currentTrp: null });
+        this.setState({currentTrp: null});
       }
       const trpsMissingData = trpsWithDistance
         .slice(0, NUMBER_OF_TRPS)
@@ -245,24 +247,24 @@ class App extends React.Component {
   store(collection, object) {
     if (this.state.isSignedIn) {
       this.getUserDoc().collection(collection).add(object)
-        .then(function (docRef) {
+        .then(function(docRef) {
           //console.log("Document written with ID: ", docRef.id);
         })
-        .catch(function (error) {
+        .catch(function(error) {
           console.error("Error adding document: ", error);
         });
     }
   }
 
   delete(collection, id) {
-    if(this.state.isSignedIn) {
+    if (this.state.isSignedIn) {
       const refreshVisitedTrps1 = this.refreshVisitedTrps.bind(this);
       this.getUserDoc().collection(collection).doc(id).delete()
-        .then(function (docRef) {
+        .then(function(docRef) {
           console.log("Document deleted with ID: ", id);
           refreshVisitedTrps1();
         })
-        .catch(function (error) {
+        .catch(function(error) {
           console.error("Error adding document: ", error);
         });
     }
@@ -308,13 +310,15 @@ class App extends React.Component {
       }
       trpTraffic[dataForTrp.trafficRegistrationPoint.id] = volume;
     });
-    this.setState({ trpTraffic });
+    this.setState({trpTraffic});
   }
 
   componentDidUpdate(prevProps) {
     const now = new Date();
     if (this.props.coords !== prevProps.coords) {
-      this.onNewTrpsOrCoords(this.state.trps);
+      const timeSinceUpdate = (now.getTime() - (this.lastCoordsTime || now).getTime()) / 1000.0;
+      this.lastCoordsTime = now;
+      this.onNewTrpsOrCoords(this.state.trps, prevProps.coords || this.props.coords, timeSinceUpdate);
     }
     if (this.props.coords !== prevProps.coords &&
       (this.lastUpdate == null ||
@@ -362,12 +366,12 @@ class App extends React.Component {
   }
 
   handleChange(event) {
-    this.setState({ distanceLimit: event.target.value });
+    this.setState({distanceLimit: event.target.value});
   }
 
   onDelete(id) {
-    if(this.state.isSignedIn) {
-      if(window.confirm("Er du sikker på at du vil slette?")) {
+    if (this.state.isSignedIn) {
+      if (window.confirm("Er du sikker på at du vil slette?")) {
         this.delete("visitedTrps", id);
       }
     }
@@ -376,32 +380,46 @@ class App extends React.Component {
 
   render() {
     if (!this.state.isSignedIn) {
-      return <div><p>Logg inn. Ved å logge inn godtar du at passeringer av TRP blir lagret i en sentral database.</p><StyledFirebaseAuth uiConfig={uiConfig} firebaseAuth={firebase.auth()} /></div>;
+      return <div><p>Logg inn. Ved å logge inn godtar du at passeringer av TRP blir lagret i en sentral database.</p>
+        <StyledFirebaseAuth uiConfig={uiConfig} firebaseAuth={firebase.auth()}/></div>;
     }
-    const { trpsWithDistance, trpTraffic } = this.state;
+    const {trpsWithDistance, trpTraffic} = this.state;
     const sortedTrps = this.state.visitedTrps.sort((a, b) => a.time > b.time ? -1 : 1);
     const uniqueTrps = new Set(sortedTrps.map(trp => trp.trp.id)).size;
     return (
       <div className="App">
         <table className="center">
           <tbody>
-            <tr>
-              <td></td><td>{this.state.error}</td>
-            </tr>
-            <tr>
-              <td>Nærmeste vegreferanse:</td><td>{this.state.roadReference && this.state.roadReference.vegreferanse.kortform}</td>
-            </tr>
-            <tr>
-              <td>Avstand: </td><td>{this.state.roadReference && this.state.roadReference.avstand}m
+          <tr>
+            <td></td>
+            <td>{this.state.error}</td>
+          </tr>
+          <tr>
+            <td>Nærmeste vegreferanse:</td>
+            <td>{this.state.roadReference && this.state.roadReference.vegreferanse.kortform}</td>
+          </tr>
+          <tr>
+            <td>Avstand:</td>
+            <td>{this.state.roadReference && this.state.roadReference.avstand}m
               {this.props.coords && (<span> +/- {Math.round(this.props.coords.accuracy)}m</span>)}
-              </td>
-            </tr>
-            <tr><td>Hastighet: </td><td>{(this.props.coords && Math.round(this.props.coords.speed * 3.6)) || "N/A"} km/t</td></tr>
-            <tr>
-              <td>Vegref. sist oppdatert:</td><td>{formatTime(this.lastUpdate)}</td>
-            </tr>
-            <tr><td>Kommune: </td><td>{this.state.municipality}</td></tr>
-            <tr><td>Siste passering: </td><td>{sortedTrps[0] && (sortedTrps[0].trp.name + " (" + formatTime(sortedTrps[0].time) + ")")}</td></tr>
+            </td>
+          </tr>
+          <tr>
+            <td>Hastighet:</td>
+            <td>{(this.props.coords && Math.round(this.props.coords.speed * 3.6)) || "N/A"} km/t</td>
+          </tr>
+          <tr>
+            <td>Vegref. sist oppdatert:</td>
+            <td>{formatTime(this.lastUpdate)}</td>
+          </tr>
+          <tr>
+            <td>Kommune:</td>
+            <td>{this.state.municipality}</td>
+          </tr>
+          <tr>
+            <td>Siste passering:</td>
+            <td>{sortedTrps[0] && (sortedTrps[0].trp.name + " (" + formatTime(sortedTrps[0].time) + ")")}</td>
+          </tr>
           </tbody>
         </table>
         <h2>Nærmeste TRPs</h2>
@@ -413,15 +431,18 @@ class App extends React.Component {
         <h2>{sortedTrps.length} passeringer, {uniqueTrps} unike TRP-er</h2>
         <table className="center">
           <tbody>
-            {sortedTrps.map((trpWithTime, i) => {
-              return (<tr key={i}><td>{formatTime(trpWithTime.time)}</td><td>{trpWithTime.trp.name}</td>
+          {sortedTrps.map((trpWithTime, i) => {
+            return (<tr key={i}>
+              <td>{formatTime(trpWithTime.time)}</td>
+              <td>{trpWithTime.trp.name}</td>
               <td>{trpWithTime.id ? (<button onClick={() => this.onDelete(trpWithTime.id)}>Slett</button>) : ""}</td>
-              </tr>)
-            })
-            }
+            </tr>)
+          })
+          }
           </tbody>
         </table>
-        Største avstand som regnes som passering: <input size="4" type="text" value={this.state.distanceLimit} onChange={this.handleChange} />m
+        Største avstand som regnes som passering: <input size="4" type="text" value={this.state.distanceLimit}
+                                                         onChange={this.handleChange}/>m
         <p className="attribution">Logget inn som {firebase.auth().currentUser.displayName}</p>
         <p className="attribution">
           Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.

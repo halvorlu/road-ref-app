@@ -15,6 +15,14 @@
   padding: 3px;
 }
 
+.green {
+  color: green;
+}
+
+.red {
+  color: red;
+}
+
 .trpTable {
   margin-bottom: 10px;
   border: solid black 1px;

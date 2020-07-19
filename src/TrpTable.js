@@ -9,7 +9,7 @@ const renderDayTraffic = (trp, dt) => {
 
 const TrpTable = ({ trpInfo, traffic }) => {
   if (!traffic) return "";
-  const { trp, distance } = trpInfo;
+  const { trp, distance, speed } = trpInfo;
   const { ydt, dt } = traffic;
 
   return (
@@ -23,7 +23,7 @@ const TrpTable = ({ trpInfo, traffic }) => {
           <td>Vegreferanse:</td><td>{trp && trp.location && trp.location.roadReference && trp.location.roadReference.shortForm}</td>
         </tr>
         <tr>
-          <td>Avstand:</td><td>{distance}m</td>
+          <td>Avstand:</td><td className={speed < 0 ? "green" : "red"}>{distance}m, {speed*3.6}km/t</td>
         </tr>
         <tr>
           <td>Siste ÅDT:</td><td>{trp && ydt && ydt.total ?
